@@ -1,0 +1,17 @@
+# PB-BLE Keywords
+PBGamepad_init KEYWORD2
+PBGamepad_getButtons KEYWORD2
+PBGamepad_getLX KEYWORD2
+PBGamepad_getLY KEYWORD2
+PBGamepad_getRX KEYWORD2
+PBGamepad_getRY KEYWORD2
+PB_GetButtonsLow KEYWORD2
+PB_GetSpeedLevel KEYWORD2
+PB_SpeedFromLevel KEYWORD2
+PB_GetDriveSpeed KEYWORD2
+PB_GetTurnSpeed KEYWORD2
+PB_JoystickDual_updateAxes KEYWORD2
+PB_JoystickDual_getLX100 KEYWORD2
+PB_JoystickDual_getLY100 KEYWORD2
+PB_JoystickDual_getRX100 KEYWORD2
+PB_JoystickDual_getRY100 KEYWORD2
