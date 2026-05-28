@@ -15,7 +15,11 @@ static BLECharacteristic *lfrTxChar = nullptr;
 static BLECharacteristic *lfrRxChar = nullptr;
 static BLEAdvertising    *lfrAdv    = nullptr;
 
-static bool   lfrConnected = false;
+static volatile bool lfrConnected = false;
+static volatile bool lfrHasActiveConn = false;
+static const uint16_t LFR_INVALID_CONN_ID = 0xFFFF;
+static volatile uint16_t lfrActiveConnId = LFR_INVALID_CONN_ID;
+static uint32_t lfrRejectedConnCount = 0;
 static String lfrRxBuffer;
 static String lfrBuf;
 
@@ -35,19 +39,115 @@ static void lfrQueueLine(const String &line) {
     lfrQCount++;
 }
 
+static void lfrStartAdvertising() {
+    if (!lfrAdv || lfrHasActiveConn || lfrConnected) return;
+    lfrAdv->start();
+}
+
+static void lfrStopAdvertising() {
+    if (lfrAdv) lfrAdv->stop();
+}
+
+static void lfrDisconnectConn(BLEServer *pServer, uint16_t connId) {
+    if (pServer == nullptr) return;
+#if defined(CONFIG_NIMBLE_ENABLED)
+    pServer->disconnect(connId, BLE_ERR_REM_USER_CONN_TERM);
+#elif defined(CONFIG_BLUEDROID_ENABLED)
+    pServer->disconnect(connId);
+#else
+    (void)connId;
+#endif
+}
+
+static void lfrAcceptOwner(uint16_t connId) {
+    lfrHasActiveConn = true;
+    lfrActiveConnId = connId;
+    lfrConnected = true;
+    lfrStopAdvertising();
+    Serial.print("[LFR BLE] connected conn_id=");
+    Serial.println(connId);
+}
+
+static void lfrHandleConnect(BLEServer *pServer, uint16_t connId) {
+    if (lfrHasActiveConn && lfrActiveConnId != connId) {
+        lfrRejectedConnCount++;
+        Serial.print("[LFR BLE] duplicate_rejected conn_id=");
+        Serial.print(connId);
+        Serial.print(" active_conn_id=");
+        Serial.print(lfrActiveConnId);
+        Serial.print(" count=");
+        Serial.println(lfrRejectedConnCount);
+        lfrDisconnectConn(pServer, connId);
+        return;
+    }
+    lfrAcceptOwner(connId);
+}
+
+static void lfrHandleDisconnect(uint16_t connId) {
+    if (!lfrHasActiveConn || lfrActiveConnId != connId) {
+        Serial.print("[LFR BLE] disconnect_ignored conn_id=");
+        Serial.print(connId);
+        Serial.print(" active_conn_id=");
+        Serial.println(lfrActiveConnId);
+        return;
+    }
+
+    lfrHasActiveConn = false;
+    lfrActiveConnId = LFR_INVALID_CONN_ID;
+    lfrConnected = false;
+    Serial.print("[LFR BLE] disconnected conn_id=");
+    Serial.println(connId);
+    lfrStartAdvertising();
+}
+
 class LFR_ServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer *pServer) override {
-        lfrConnected = true;
-        Serial.println("[LFR BLE] Client connected");
+#if !defined(CONFIG_BLUEDROID_ENABLED) && !defined(CONFIG_NIMBLE_ENABLED)
+        if (!lfrHasActiveConn) {
+            lfrAcceptOwner(LFR_INVALID_CONN_ID);
+        } else {
+            Serial.println("[LFR BLE] duplicate_rejected conn_id=unknown");
+            if (pServer) pServer->disconnect(0);
+        }
+#else
+        (void)pServer;
+#endif
     }
 
     void onDisconnect(BLEServer *pServer) override {
+#if !defined(CONFIG_BLUEDROID_ENABLED) && !defined(CONFIG_NIMBLE_ENABLED)
+        (void)pServer;
+        lfrHasActiveConn = false;
+        lfrActiveConnId = LFR_INVALID_CONN_ID;
         lfrConnected = false;
-        Serial.println("[LFR BLE] Client disconnected, restart advertising");
-        if (lfrAdv) {
-            lfrAdv->start();
-        }
+        Serial.println("[LFR BLE] disconnected conn_id=unknown");
+        lfrStartAdvertising();
+#else
+        (void)pServer;
+#endif
     }
+
+#if defined(CONFIG_BLUEDROID_ENABLED)
+    void onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param) override {
+        lfrHandleConnect(pServer, param->connect.conn_id);
+    }
+
+    void onDisconnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param) override {
+        (void)pServer;
+        lfrHandleDisconnect(param->disconnect.conn_id);
+    }
+#endif
+
+#if defined(CONFIG_NIMBLE_ENABLED)
+    void onConnect(BLEServer *pServer, ble_gap_conn_desc *desc) override {
+        lfrHandleConnect(pServer, desc->conn_handle);
+    }
+
+    void onDisconnect(BLEServer *pServer, ble_gap_conn_desc *desc) override {
+        (void)pServer;
+        lfrHandleDisconnect(desc->conn_handle);
+    }
+#endif
 };
 
 class LFR_RxCallbacks : public BLECharacteristicCallbacks {
@@ -93,10 +193,16 @@ static void lfrProcessRx() {
 
 void LFR_begin(const char* deviceName) {
     Serial.println("[LFR BLE] init start");
+    lfrHasActiveConn = false;
+    lfrActiveConnId = LFR_INVALID_CONN_ID;
+    lfrConnected = false;
 
     BLEDevice::init(deviceName);
 
     lfrServer = BLEDevice::createServer();
+#if defined(CONFIG_BLUEDROID_ENABLED)
+    lfrServer->advertiseOnDisconnect(false);
+#endif
     lfrServer->setCallbacks(new LFR_ServerCallbacks());
 
     BLEService *svc = lfrServer->createService(LFR_SERVICE_UUID);

@@ -22,6 +22,13 @@ String PBGamepad_getCommand(void);
 void PBGamepad_sendLine(const String &msg);
 bool PBGamepad_isConnected(void);
 
+bool PBGamepad_isControlFresh(void);
+void PBGamepad_resetControlState(void);
+uint32_t PBGamepad_lastControlAgeMs(void);
+void PBGamepad_poll(void);
+uint32_t PBGamepad_lastDisconnectAgeMs(void);
+uint32_t PBGamepad_advertiseRetryCount(void);
+
 bool PBGamepad_hasBinary(void);
 float PBGamepad_getLX(void);
 float PBGamepad_getLY(void);

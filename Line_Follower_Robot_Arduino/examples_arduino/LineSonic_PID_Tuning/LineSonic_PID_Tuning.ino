@@ -1,4 +1,4 @@
-﻿/*
+/*
   LineSonic PID Tuning (Arduino IDE)
   - PB board: keep default.
     - Other boards: set LFR_USE_GENERIC_HW=1 in LFR_HW_Config.h and edit LineFollowerRobotHW.cpp.
@@ -262,10 +262,17 @@ void parseSeq(const String &payload) {
   resetRun();
   Serial.print("[SEQ] steps=");
   Serial.println(stepCount);
+  LFR_sendLine("ACK:SEQ");
 }
 
 // Update KP/KD/Speed only: SEQPD=...
 void parseSeqPd(const String &payload) {
+  if (stepCount <= 0) {
+    Serial.println("[SEQPD] ignored no sequence");
+    LFR_sendLine("ERR:NO_SEQ");
+    return;
+  }
+
   int idxStep = 0;
   int start = 0;
   while (idxStep < MAX_STEPS) {
@@ -290,6 +297,7 @@ void parseSeqPd(const String &payload) {
   }
 
   Serial.println("[SEQPD] updated KP/KD/Speed");
+  LFR_sendLine("ACK:SEQPD");
 }
 
 // Main runner: PD control + step timing/checksum
@@ -422,13 +430,14 @@ void loop() {
     } else if (line == "RESET=1") {
       Serial.println("[CMD] RESET");
       resetRun();
+      LFR_sendLine("ACK:RESET");
+    } else if (line == "CLEAR=1") {
+      Serial.println("[CMD] CLEAR");
+      resetRun();
       stepCount = 0;
+      LFR_sendLine("ACK:CLEAR");
     }
   }
 
   updateRun();
 }
-
-
-
-
