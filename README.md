@@ -1,5 +1,9 @@
 # PB-BLE for PB Controller
 
+[ภาษาไทย](#thai-installation) | [English](#english-installation)
+
+<a id="thai-installation"></a>
+
 ## วิธีติดตั้งสำหรับผู้เริ่มต้น
 
 ไลบรารีนี้ใช้รับข้อมูลปุ่มและจอยจากแอป PB Controller ไม่ได้สั่งมอเตอร์ให้เอง
@@ -63,15 +67,59 @@ choose GPIO pins, initialize robot hardware, or require a motor-driver library.
 - Compilation and host tests are not physical-board validation. Hardware checks
   with this Arduino port are pending; the KBIDE implementation is the reference.
 
-## Installation
-Install Espressif ESP32 core 3.3.11 in Arduino IDE Boards Manager.
-Copy this PB-BLE folder (the one containing library.properties) into your
-sketchbook libraries directory and restart Arduino IDE, or install a ZIP whose
-library root contains library.properties and src/.
-Do NOT install the entire combined repository ZIP as a single Arduino library.
-Select your actual ESP32 or ESP32-C3 board in Tools > Board.
-Use File > Examples > PB-BLE. Use BLE bundled with the ESP32 core; do not copy
-KBIDE BLE headers or install an old standalone ESP32 BLE Arduino library.
+<a id="english-installation"></a>
+
+## Installation — English
+
+1. Open the [latest release](https://github.com/Amornthep-ra/PB-BLE/releases/latest)
+   and download **PB-BLE.zip** under **Assets**. Do not extract it.
+2. In Arduino IDE, select **Sketch > Include Library > Add .ZIP Library…**,
+   choose PB-BLE.zip, and wait for the installation confirmation.
+3. Open **Tools > Board > Boards Manager…**, search for **esp32**, and install
+   **esp32 by Espressif Systems**, version **3.3.11** used for compile testing.
+4. Select your actual ESP32 or ESP32-C3 board under **Tools > Board** and its
+   serial port under **Tools > Port**. Generic options include ESP32 Dev Module
+   and ESP32C3 Dev Module.
+5. Open **File > Examples > PB-BLE > Connection_Status**.
+6. Set your Device Name, unique Board ID and Pair Code in the example:
+
+   ```cpp
+   PBGamepad_init("MyRobot", "Robot01", "YourCode123");
+   ```
+
+   Board ID: 1–32 English letters/digits. Pair Code: 8–16 English letters/digits,
+   case insensitive. No spaces or punctuation. Replace the public example code.
+7. Click **Upload**, then open Serial Monitor at **115200 baud**.
+8. In PB Controller, connect to the BLE device name you configured and enter
+   its Pair Code when prompted. Open a controller mode and tap Start to test inputs.
+
+Connection_Status only displays connection status. Use Gamepad_4_Button,
+Gamepad_8_Button or Joystick_Dual to read controls, and Safe_Stop for freshness
+and stop-callback handling. These examples do not automatically drive motors.
+Implement your own actuator commands and safe stop. Test with wheels raised or
+motor power disconnected first.
+
+### Troubleshooting — English
+
+- **No PB-BLE examples:** restart Arduino IDE and check installation succeeded.
+- **ZIP installation fails:** use PB-BLE.zip from the Release Assets.
+- **esp32 package missing:** add the following URL under **File > Preferences >
+  Additional Boards Manager URLs**, then reopen Boards Manager:
+  https://espressif.github.io/arduino-esp32/package_esp32_index.json
+- **Unsupported board:** this release supports ESP32 and ESP32-C3 only, not UNO
+  or ESP32-S2/S3. Select the correct board and core.
+- **Old sketch fails to compile:** remove sketch-local PBGamepad.h/.cpp and
+  PBJoystick.h/.cpp that shadow the installed library. Start with a new example
+  and use three init arguments instead of the old single Device Name argument.
+- **Cannot connect:** check board power, Bluetooth/app permissions, and whether
+  another phone is already connected.
+- **Pair Code rejected:** check the values in the sketch actually uploaded to
+  the board. Use a distinct Board ID for each device.
+
+Use the BLE library bundled with the ESP32 core. Do not copy KBIDE BLE headers
+or install an old standalone ESP32 BLE Arduino library.
+All five examples compiled for both targets (10 builds) on core 3.3.11.
+Host tests passed; physical-board validation of this Arduino port is still pending.
 
 ## Setup
 Include <PBGamepad.h>, then call:
@@ -169,4 +217,3 @@ Compile examples for esp32:esp32:esp32 and esp32:esp32:esp32c3.
 Before deployment test first pairing, saved-code reuse, changed code, reconnect,
 4BTN/8BTN/Joystick, releases, Stop, stale data and your actual actuator stop.
 Do not claim untested boards as hardware-validated.
-
